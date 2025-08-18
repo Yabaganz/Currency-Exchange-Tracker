@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+/* DASHBOARD PADDING */
+div.block-container.css-z5fcl4.egzxvld4 {
+    width: 100%;
+    min-width: auto;
+    max-width: initial;
+    padding-left: 5rem;
+    padding-right: 5rem;
+    padding-top: 15px;
+    padding-bottom: 40px;
+}
+
+/* GLOBAL FONT CHANGE */
+html, body, [class*="css"] {
+    font-family: 'Space Grotesk'; 
+}
+
+.st-ae {
+    font-family: 'Space Grotesk';
+}
+
+/* CONTAINER CSS */
+[data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+    border: 1px groove #52546a;
+    border-radius: 10px;
+    padding-left: 45px;
+    padding-right: 45px;
+    padding-top: 20px;
+    padding-bottom: 40px;
+    box-shadow: -6px 8px 20px 1px #00000052;
+}
+
+/* IMAGE CSS */
+[data-testid="stImage"] {
+    padding-top: 20px;
+}
+
+/* CUSTOM MARKDOWN CLASSES */
+.converted_currency {
+    font-size: 22px; 
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: right;
+    color: grey;
+    padding-top: 10px;
+}
+
+.converted_total {
+    font-size: 32px; 
+    font-family: 'Space Grotesk';
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.details_text {
+    font-size: 15px; 
+    font-family: 'Space Grotesk';
+    font-weight: 400;
+    line-height: 1.2;
+    text-align: left;
+    padding-top: 12px;
+}
+.section_title {
+    font-size: 20px; 
+    font-family: 'Space Grotesk';
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+}
