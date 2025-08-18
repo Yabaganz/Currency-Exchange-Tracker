@@ -1,5 +1,5 @@
 """
-This module contains functions for processing financial data including:
+This module contains functions for:
 - Calculating historical volatility
 - Computing pivot points
 - Preparing data for visualization
@@ -72,4 +72,5 @@ class DataProcessor:
         Returns:
             DataFrame ready for charting with date as a column
         """
+
         return df.reset_index()
