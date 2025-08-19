@@ -4,4 +4,4 @@ A robust and modular Streamlit app for tracking live currency exchange rates, an
 * *Abdullahi Yusuf* ([yabaganz](https://github.com/Yabaganz))
 * *Charles I Ella* ([Karldrogo-art](https://github.com/kaldrogo-art)
 * *Alamin Abdullatif* ([Gebeks](https://gist.github.com/Gebeks)
-* *Sijuwola E. Olatilu* ([Siju](https://github.com/Sijuwola/Currency_Exchange_Rate_Tracker.git)
+* *Sijuwola E. Olatiilu* ([Siju](https://github.com/Sijuwola)
