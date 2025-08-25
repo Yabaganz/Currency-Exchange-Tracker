@@ -1,4 +1,3 @@
-# app.py
 """
 Main Streamlit application for currency conversion and analysis.
 
@@ -12,9 +11,9 @@ This application provides:
 
 import streamlit as st
 from datetime import date, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional 
 import pandas as pd
-from lightweight_charts.widgets import StreamlitChart
+from lightweight_charts.widgets import StreamlitChart # type: ignore
 from utilities import APIService
 from analytics import DataProcessor
 
@@ -47,22 +46,12 @@ def initialize_app() -> None:
 def get_currency_codes(currency_str: str) -> str:
     """
     Extracts 3-letter currency code from formatted string.
-    
-    Args:
-        currency_str: String in format "CODE (Description)"
-        
     Returns:
         3-letter currency code
     """
     return currency_str[:3]
 
-def display_conversion_result(
-    base_currency: str,
-    target_currency: str,
-    amount: float,
-    converted_total: float,
-    rate: float
-) -> None:
+def display_conversion_result(base_currency: str, target_currency: str, amount: float, converted_total: float, rate: float) -> None:
     """
     Displays currency conversion results in the UI.
     
@@ -98,7 +87,7 @@ def configure_chart(df: pd.DataFrame, pair: str) -> StreamlitChart:
     Returns:
         Configured StreamlitChart instance
     """
-    chart = StreamlitChart(height=450, width=950)
+    chart = StreamlitChart(height=450, width=1500)
     chart.grid(vert_enabled=True, horz_enabled=True)
     chart.layout(
         background_color='#131722', 
@@ -106,11 +95,11 @@ def configure_chart(df: pd.DataFrame, pair: str) -> StreamlitChart:
         font_size=16
     )
     chart.candle_style(
-        up_color='#2962ff', 
+        up_color='#12D900', 
         down_color='#e91e63', 
         border_up_color='#2962ffcb', 
         border_down_color='#e91e63cb', 
-        wick_up_color='#2962ffcb', 
+        wick_up_color='#12D900', 
         wick_down_color='#e91e63cb'
     )
     chart.watermark(f'{pair} 1D')
@@ -175,7 +164,7 @@ def main() -> None:
             convert = st.button('Convert')
 
         if convert and quote_currency:
-            for target, target_code in zip(quote_currency, quote_codes):
+            for target_code in quote_codes:
                 try:
                     converted_total, rate = api_service.convert_currency(
                         base_code,
@@ -241,70 +230,67 @@ def main() -> None:
                                 chart.load()
                             except Exception as e:
                                 st.error(f"Chart error: {str(e)}")
-                        
-                        # Historical Volatility
-                        with st.container():
-                            st.markdown('')
+                    except Exception as e:
+                        st.error(f"")    
+                        # Historical Volatility section
+        with st.container():
+            st.markdown('')
                             
                             # Centered title
-                            st.markdown(
-                                f'<div style="text-align: center;">'
-                                f'<p class="section_title"><b>{base_code}/{quote_codes[0]} Historical Volatility</b> (length = 20)</p>'
-                                f'</div>',
-                                unsafe_allow_html=True
-                            )
-                            st.markdown('')
+            st.markdown(
+                f'<div style="text-align: center;">'
+                f'<p class="section_title"><b>{base_code}/{quote_codes[0]} Historical Volatility</b> (length = 20)</p>'
+                f'</div>',
+                unsafe_allow_html=True)
+            st.markdown('')
                             
                             # Full width container with centered content
-                            with st.container():
-                                col1, col2 = st.columns([0.4, 0.6])
+            with st.container():
+                col_1, col_2 = st.columns([0.4, 0.6])
                                 
-                                with col1:
-                                    st.dataframe(historical_df[['close','log_ret','hv']], use_container_width=True)
+                with col_1:
+                    st.dataframe(historical_df[['close','log_ret','hv']], use_container_width=True)
                                 
-                                with col2:
-                                    st.line_chart(historical_df.hv, height=450, use_container_width=True)
+                with col_2:
+                    st.line_chart(historical_df.hv, height=450, use_container_width=True)
                             
-                            # Pivot Points
-                            # Pivot Points - Full width with centered content
-                        with st.container():
-                            st.markdown('')
+                            
+                            # Pivot Points section 
+        with st.container():
+            st.markdown('')
                             
 
-                            st.markdown(
-                                f'<div style="text-align: center;">'
-                                f'<p class="section_title"><b>{base_code}/{quote_codes[0]} Pivot Points</b></p>'
-                                f'</div>',
-                                unsafe_allow_html=True
-                            )
-                            st.markdown('')
+            st.markdown(
+                f'<div style="text-align: center;">'
+                f'<p class="section_title"><b>{base_code}/{quote_codes[0]} Pivot Points</b></p>'
+                f'</div>',
+                unsafe_allow_html=True
+                )
+            st.markdown('')
                             
                             # Full width container with centered content
-                            with st.container():
-                                col1, col2 = st.columns([0.4, 0.6])
+            with st.container():
+                col1, col2 = st.columns([0.4, 0.6])
                                 
-                                with col1:
-                                    st.dataframe(historical_df.iloc[:,-6:], use_container_width=True)
+                with col1:
+                    st.dataframe(historical_df.iloc[:,-6:], use_container_width=True)
                                 
-                                with col2:
-                                    try:
-                                        chart = configure_chart(historical_df, target_pair)
+                with col2:
+                    try:
+                        chart = configure_chart(historical_df, target_pair)
                                         
                                         # Add pivot lines
-                                        last_row = historical_df.iloc[-1]
-                                        chart.horizontal_line(price=last_row['r1'], color='darkorange', text='R1', style='dotted')
-                                        chart.horizontal_line(price=last_row['r2'], color='darkorange', text='R2', style='dotted')
-                                        chart.horizontal_line(price=last_row['r3'], color='darkorange', text='R3', style='dotted')
-                                        chart.horizontal_line(price=last_row['s1'], color='darkorange', text='S1', style='dotted')
-                                        chart.horizontal_line(price=last_row['s2'], color='darkorange', text='S2', style='dotted')
-                                        chart.horizontal_line(price=last_row['s3'], color='darkorange', text='S3', style='dotted')
-                                        chart.set(data_processor.prepare_chart_data(historical_df))
-                                        chart.load()
+                        last_row = historical_df.iloc[-1]
+                        chart.horizontal_line(price=last_row['r1'], color='darkorange', text='R1', style='dotted')
+                        chart.horizontal_line(price=last_row['r2'], color='darkorange', text='R2', style='dotted')
+                        chart.horizontal_line(price=last_row['r3'], color='darkorange', text='R3', style='dotted')
+                        chart.horizontal_line(price=last_row['s1'], color='darkorange', text='S1', style='dotted')
+                        chart.horizontal_line(price=last_row['s2'], color='darkorange', text='S2', style='dotted')
+                        chart.horizontal_line(price=last_row['s3'], color='darkorange', text='S3', style='dotted')
+                        chart.set(data_processor.prepare_chart_data(historical_df))
+                        chart.load()
                                     
-                                    except Exception as e:
-                                        st.error(f"Pivot chart error: {str(e)}")
                     except Exception as e:
-                        st.error(f"")
-
+                        st.error(f"Pivot chart error: {str(e)}")                    
 if __name__ == "__main__":
     main()
