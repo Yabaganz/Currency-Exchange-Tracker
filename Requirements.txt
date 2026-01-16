@@ -1,1 +1,18 @@
+# Core framework
+streamlit
+
+# Data handling
+pandas
+numpy
+
+# API requests
+requests
+
+# Visualization
 streamlit-lightweight-charts
+hvplot
+holoviews
+matplotlib
+
+# Optional utilities (for statistical calculations, volatility, etc.)
+scipy
