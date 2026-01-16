@@ -1,7 +1,17 @@
+/* style.css
+   Custom styles for Currency Exchange Tracker Streamlit app.
+   - Centers conversion cards in Streamlit columns
+   - Applies Space Grotesk font
+   - Adds container/card styling and safer selectors
+*/
+
+/* Import font */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
-/* DASHBOARD PADDING */
-div.block-container.css-z5fcl4.egzxvld4 {
+/* DASHBOARD PADDING
+   Use a stable selector for the main block container instead of fragile auto-generated classes.
+*/
+div.block-container {
     width: 100%;
     min-width: auto;
     max-width: initial;
@@ -13,14 +23,12 @@ div.block-container.css-z5fcl4.egzxvld4 {
 
 /* GLOBAL FONT CHANGE */
 html, body, [class*="css"] {
-    font-family: 'Space Grotesk'; 
+    font-family: 'Space Grotesk', sans-serif;
 }
 
-.st-ae {
-    font-family: 'Space Grotesk';
-}
-
-/* CONTAINER CSS */
+/* CONTAINER CARD STYLING
+   Targets Streamlit vertical blocks to create a card-like appearance.
+*/
 [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
     border: 1px groove #52546a;
     border-radius: 10px;
@@ -31,42 +39,64 @@ html, body, [class*="css"] {
     box-shadow: -6px 8px 20px 1px #00000052;
 }
 
-/* IMAGE CSS */
+/* IMAGE SPACING */
 [data-testid="stImage"] {
     padding-top: 20px;
 }
 
-/* CUSTOM MARKDOWN CLASSES */
+/* Ensure Streamlit columns use flexbox centering
+   This centers content both vertically and horizontally inside columns.
+*/
+.stColumn > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+/* Conversion card wrapper
+   Used by the conversion result HTML injected via st.markdown.
+*/
+.conversion_card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    min-width: 180px;
+}
+
+/* Text styles inside the conversion card */
 .converted_currency {
-    font-size: 22px; 
-    font-family: 'Space Grotesk';
-    font-weight: 700;
-    line-height: 1.2;
-    text-align: right;
-    color: grey;
-    padding-top: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #9aa0b4;
+    text-align: center;
+    margin: 0;
 }
 
 .converted_total {
-    font-size: 32px; 
-    font-family: 'Space Grotesk';
+    font-size: 28px;
     font-weight: 700;
-    line-height: 1.2;
-    text-align: left;
+    color: #ffffff;
+    text-align: center;
+    margin: 0;
 }
 
 .details_text {
-    font-size: 15px; 
-    font-family: 'Space Grotesk';
-    font-weight: 400;
-    line-height: 1.2;
-    text-align: left;
-    padding-top: 12px;
+    font-size: 13px;
+    color: #bfc6d8;
+    text-align: center;
+    margin: 0;
 }
+
+/* Section title style */
 .section_title {
-    font-size: 20px; 
-    font-family: 'Space Grotesk';
+    font-size: 20px;
     font-weight: 500;
-    line-height: 1.2;
     text-align: center;
 }
