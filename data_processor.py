@@ -13,164 +13,272 @@ type annotations and input validation to fail fast on unexpected input.
 """
 
 from __future__ import annotations
-
-from typing import Iterable, List
-
+from typing import Iterable, List, Optional, Union
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 
 
 def _ensure_columns(df: pd.DataFrame, required: Iterable[str]) -> None:
     """
-    Validate that required columns exist in the DataFrame.
-
+    Validate required columns exist in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        required: Set of required column names
+        
     Raises:
-        ValueError: if any required column is missing.
+        ValueError: If any required column missing
     """
-    missing = [c for c in required if c not in df.columns]
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be pandas.DataFrame")
+    
+    missing: List[str] = [c for c in required if c not in df.columns]
     if missing:
-        raise ValueError(f"DataFrame is missing required columns: {missing}")
+        raise ValueError(f"DataFrame missing required columns: {missing}")
 
 
 def _to_numeric_columns(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
     """
-    Convert specified columns to numeric dtype in-place and return the DataFrame.
-
-    Non-convertible values become NaN.
+    Convert specified columns to numeric dtype in-place.
+    
+    Args:
+        df: Input DataFrame
+        cols: List of column names to convert
+        
+    Returns:
+        DataFrame with numeric columns (NaN for non-convertible values)
     """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be pandas.DataFrame")
+    
+    result: pd.DataFrame = df.copy()
     for col in cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df
+        if col not in result.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        result[col] = pd.to_numeric(result[col], errors="coerce")
+    
+    return result
 
 
-def calculate_historical_volatility(df: pd.DataFrame, window_size: int = 20) -> pd.DataFrame:
+def calculate_historical_volatility(
+    df: pd.DataFrame, 
+    window_size: int = 20, 
+    price_col: str = "close"
+) -> pd.DataFrame:
     """
     Calculate log returns and annualized historical volatility.
-
+    
     Args:
-        df: DataFrame indexed by datetime or with a 'date' column and containing a 'close' column.
-        window_size: Rolling window size (in periods) used to compute the rolling standard deviation.
-
+        df: OHLC DataFrame with price column
+        window_size: Rolling window for volatility calculation (default: 20 periods)
+        price_col: Price column name (default: 'close')
+        
     Returns:
         DataFrame with added columns:
-            - 'log_ret' : log returns
-            - 'hv'      : annualized historical volatility in percentage
-
+            - f'{price_col}_log_ret': Log returns
+            - 'hv': Annualized historical volatility (%)
+    
     Notes:
-        - Uses 252 trading days for annualization (standard in finance).
-        - Drops rows with NaN produced by shifting/rolling operations.
+        - Uses 252 trading days for annualization (FX standard)
+        - Drops NaN rows from rolling calculations
+        - Handles weekends/missing data gracefully
     """
-    if "close" not in df.columns:
-        raise ValueError("Input DataFrame must contain a 'close' column")
-
-    df = df.copy()
-    # Ensure numeric close values
-    df = _to_numeric_columns(df, ["close"])
-
-    # Compute log returns
-    df["log_ret"] = np.log(df["close"] / df["close"].shift(1))
-
+    # Input validation
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be pandas.DataFrame")
+    if price_col not in df.columns:
+        raise ValueError(f"Price column '{price_col}' not found")
+    if not isinstance(window_size, int) or window_size < 2:
+        raise ValueError("window_size must be integer >= 2")
+    
+    df_work: pd.DataFrame = df.copy()
+    
+    # Ensure numeric price data
+    df_work = _to_numeric_columns(df_work, [price_col])
+    
+    # Calculate log returns: ln(Pt / Pt-1)
+    log_ret_col: str = f"{price_col}_log_ret"
+    df_work[log_ret_col] = np.log(
+        df_work[price_col] / df_work[price_col].shift(1)
+    )
+    
     # Rolling standard deviation of log returns
-    rolling_std = df["log_ret"].rolling(window=window_size, min_periods=1).std()
-
-    # Annualize using 252 trading days and convert to percentage
-    df["hv"] = rolling_std * np.sqrt(252) * 100.0
-
-    # Drop rows with NaN in hv or log_ret (first rows)
-    return df.dropna(subset=["log_ret", "hv"])
+    rolling_std: pd.Series = df_work[log_ret_col].rolling(
+        window=window_size, 
+        min_periods=2  # Need at least 2 periods for std
+    ).std()
+    
+    # Annualize: std * sqrt(252) * 100 for percentage
+    ANNUALIZATION_FACTOR: float = np.sqrt(252)
+    df_work["hv"] = rolling_std * ANNUALIZATION_FACTOR * 100.0
+    
+    # Clean: drop rows with NaN returns or volatility
+    result: pd.DataFrame = df_work.dropna(subset=[log_ret_col, "hv"])
+    
+    return result
 
 
 def calculate_pivot_points(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate daily pivot points and support/resistance levels.
-
+    Calculate classic floor pivot points and support/resistance levels.
+    
+    Formula (using previous period HLC):
+        PP  = (High + Low + Close) / 3
+        R1  = 2 × PP - Low
+        S1  = 2 × PP - High  
+        R2  = PP + (High - Low)
+        S2  = PP - (High - Low)
+        R3  = High + 2 × (PP - Low)
+        S3  = Low - 2 × (High - PP)
+    
     Args:
-        df: DataFrame indexed by datetime (or with 'date' column) containing 'high', 'low', 'close'.
-
+        df: OHLC DataFrame with 'high', 'low', 'close' columns
+        
     Returns:
-        DataFrame with added columns:
-            - 'pivot', 'r1', 's1', 'r2', 's2', 'r3', 's3'
-
-    Behavior:
-        - Uses previous period's high/low/close to compute pivot levels for the current row.
-        - Rows with insufficient history (NaN after shift) are dropped.
+        DataFrame with pivot columns: 'pivot', 'r1', 'r2', 'r3', 's1', 's2', 's3'
     """
-    required = {"high", "low", "close"}
+    # Validate required OHLC columns
+    required: set[str] = {"high", "low", "close"}
     _ensure_columns(df, required)
-
-    df = df.copy()
-    # Ensure numeric types
-    df = _to_numeric_columns(df, ["high", "low", "close"])
-
-    # Use previous period values to compute pivot for the current period
-    prev_high = df["high"].shift(1)
-    prev_low = df["low"].shift(1)
-    prev_close = df["close"].shift(1)
-
-    # Pivot point
-    df["pivot"] = (prev_high + prev_low + prev_close) / 3.0
-
-    # First level support/resistance
-    df["r1"] = 2 * df["pivot"] - prev_low
-    df["s1"] = 2 * df["pivot"] - prev_high
-
-    # Second level
-    df["r2"] = df["pivot"] + (prev_high - prev_low)
-    df["s2"] = df["pivot"] - (prev_high - prev_low)
-
-    # Third level
-    df["r3"] = prev_high + 2 * (df["pivot"] - prev_low)
-    df["s3"] = prev_low - 2 * (prev_high - df["pivot"])
-
-    # Drop rows where pivot could not be computed (first row)
-    return df.dropna(subset=["pivot"])
+    
+    df_work: pd.DataFrame = df.copy()
+    
+    # Ensure numeric HLC data
+    df_work = _to_numeric_columns(df_work, list(required))
+    
+    # Get previous period values (shift by 1)
+    prev_high: pd.Series = df_work["high"].shift(1)
+    prev_low: pd.Series = df_work["low"].shift(1) 
+    prev_close: pd.Series = df_work["close"].shift(1)
+    
+    # Pivot Point (PP)
+    df_work["pivot"] = (prev_high + prev_low + prev_close) / 3.0
+    
+    # Resistance levels (R1, R2, R3)
+    df_work["r1"] = 2 * df_work["pivot"] - prev_low
+    df_work["r2"] = df_work["pivot"] + (prev_high - prev_low)
+    df_work["r3"] = prev_high + 2 * (df_work["pivot"] - prev_low)
+    
+    # Support levels (S1, S2, S3)
+    df_work["s1"] = 2 * df_work["pivot"] - prev_high
+    df_work["s2"] = df_work["pivot"] - (prev_high - prev_low)
+    df_work["s3"] = prev_low - 2 * (prev_high - df_work["pivot"])
+    
+    # Drop first row (no previous period data)
+    result: pd.DataFrame = df_work.dropna(subset=["pivot"])
+    
+    return result
 
 
 def prepare_chart_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Prepare DataFrame for charting libraries.
-
+    Normalize OHLC DataFrame for consistent charting across libraries.
+    
     Ensures:
-    - 'date' is a column (not only an index)
-    - OHLC columns are present and numeric
-    - Data is sorted by date ascending
-
+    - 'date' column exists (not just index)
+    - Standard lowercase OHLC: 'open', 'high', 'low', 'close' 
+    - Data sorted ascending by date
+    - Numeric types with NaN cleaning
+    
     Args:
-        df: DataFrame indexed by datetime or with a 'date' column.
-
+        df: Raw OHLC data from API (flexible format)
+        
     Returns:
-        DataFrame with 'date' column and numeric 'open','high','low','close' columns.
+        Clean chart-ready DataFrame
+        
+    Raises:
+        ValueError: Missing date or OHLC columns
     """
-    df = df.copy()
-
-    # If index is datetime and 'date' column not present, reset index
-    if "date" not in df.columns:
-        if isinstance(df.index, pd.DatetimeIndex):
-            df = df.reset_index()
-            df = df.rename(columns={df.columns[0]: "date"}) if df.columns[0] != "date" else df
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be pandas.DataFrame")
+    
+    df_work: pd.DataFrame = df.copy()
+    
+    # STEP 1: Handle date column/index
+    if "date" not in df_work.columns:
+        if isinstance(df_work.index, pd.DatetimeIndex):
+            # Move datetime index to column
+            df_work = df_work.reset_index().rename(columns={df_work.index.name: "date"})
         else:
-            # If no date column and index is not datetime, attempt to coerce any index to datetime
-            try:
-                df = df.reset_index()
-            except Exception:
-                raise ValueError("DataFrame must have a datetime index or a 'date' column")
+            raise ValueError("DataFrame must have 'date' column or DatetimeIndex")
+    
+    # STEP 2: Normalize column names to lowercase
+    df_work.columns = [col.lower().strip() for col in df_work.columns]
+    
+    # STEP 3: Ensure date column still exists after lowercase
+    if "date" not in df_work.columns:
+        raise ValueError("No identifiable date column found")
+    
+    # STEP 4: Map OHLC variants to standard names
+    ohlc_map: Dict[str, str] = {}
+    for col in df_work.columns:
+        col_lower: str = col.lower()
+        if col_lower.startswith(('open', 'o')) and 'open' not in ohlc_map.values():
+            ohlc_map[col] = 'open'
+        elif col_lower.startswith(('high', 'h')) and 'high' not in ohlc_map.values():
+            ohlc_map[col] = 'high'
+        elif col_lower.startswith(('low', 'l')) and 'low' not in ohlc_map.values():
+            ohlc_map[col] = 'low'
+        elif col_lower.startswith(('close', 'c', 'last')) and 'close' not in ohlc_map.values():
+            ohlc_map[col] = 'close'
+    
+    df_work = df_work.rename(columns=ohlc_map)
+    
+    # STEP 5: Validate required columns
+    required_ohlc: set[str] = {'open', 'high', 'low', 'close'}
+    _ensure_columns(df_work, ['date'] + list(required_ohlc))
+    
+    # STEP 6: Type conversions
+    df_work["date"] = pd.to_datetime(df_work["date"], errors="coerce")
+    df_work = _to_numeric_columns(df_work, list(required_ohlc))
+    
+    # STEP 7: Clean invalid data
+    valid_mask: pd.Series = (
+        df_work["date"].notna() & 
+        df_work[required_ohlc].notna().all(axis=1) &
+        (df_work["high"] >= df_work["low"]) &
+        (df_work["high"] >= df_work["open"]) &
+        (df_work["high"] >= df_work["close"]) &
+        (df_work["low"] <= df_work["open"]) &
+        (df_work["low"] <= df_work["close"])
+    )
+    
+    cleaned: pd.DataFrame = df_work[valid_mask].copy()
+    
+    # STEP 8: Sort and finalize
+    result: pd.DataFrame = cleaned.sort_values("date").reset_index(drop=True)
+    
+    if result.empty:
+        raise ValueError("No valid OHLC data after cleaning")
+    
+    return result
 
-    # Normalize column names to lowercase for consistency
-    df.columns = [c.lower() for c in df.columns]
 
-    # Ensure OHLC columns exist
-    required = {"open", "high", "low", "close"}
-    if not required.issubset(set(df.columns)):
-        missing = required.difference(set(df.columns))
-        raise ValueError(f"Chart data missing required OHLC columns: {missing}")
-
-    # Convert date column to datetime and OHLC to numeric
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = _to_numeric_columns(df, ["open", "high", "low", "close"])
-
-    # Drop rows with invalid dates or OHLC values
-    df = df.dropna(subset=["date", "open", "high", "low", "close"])
-
-    # Sort by date ascending
-    df = df.sort_values("date").reset_index(drop=True)
-    return df
+class DataProcessor:
+    """
+    Container class for data processing utilities.
+    
+    Usage:
+        processor = DataProcessor()
+        pivots = processor.calculate_pivot_points(df)
+        volatility = processor.calculate_historical_volatility(df)
+        chart_data = processor.prepare_chart_data(df)
+    """
+    
+    def calculate_historical_volatility(
+        self, 
+        df: pd.DataFrame, 
+        window_size: int = 20, 
+        price_col: str = "close"
+    ) -> pd.DataFrame:
+        """Instance method wrapper for calculate_historical_volatility."""
+        return calculate_historical_volatility(df, window_size, price_col)
+    
+    def calculate_pivot_points(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Instance method wrapper for calculate_pivot_points."""
+        return calculate_pivot_points(df)
+    
+    def prepare_chart_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Instance method wrapper for prepare_chart_data."""
+        return prepare_chart_data(df)
