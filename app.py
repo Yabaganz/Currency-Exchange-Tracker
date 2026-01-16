@@ -13,7 +13,7 @@ import streamlit as st
 from datetime import date, timedelta
 from typing import List, Optional 
 import pandas as pd
-from lightweight_charts.widgets import StreamlitChart # type: ignore
+from streamlit-lightweight-charts import StreamlitChart # type: ignore
 from utilities import APIService
 from analytics import DataProcessor
 
@@ -294,3 +294,4 @@ def main() -> None:
                         st.error(f"Pivot chart error: {str(e)}")                    
 if __name__ == "__main__":
     main()
+
