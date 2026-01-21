@@ -8,7 +8,7 @@ from api_service import APIService
 from data_processor import DataProcessor
 
 # CONFIGURATION: Load API key from Streamlit secrets (secure)
-API_KEY: str = st.secrets.get("TRADERMADE_API_KEY", "")  # type: ignore
+API_KEY: str = st.secrets.get("GVM9PgfkeLrGqXoK_uEV", "")  # type: ignore
 
 # LIBRARY DETECTION: Soft dependencies for optional chart libraries
 LIGHTWEIGHT_CHARTS_AVAILABLE: bool = False
@@ -353,3 +353,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
