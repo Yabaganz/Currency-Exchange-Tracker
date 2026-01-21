@@ -1,9 +1,10 @@
 # requirements.txt - pinned versions for reproducible deployment
-numpy==1.26.4
-holoviews==2.8.1
+streamlit
+numpy>=1.26,<2.0
+holoviews==1.18.3
+rich>=10.14.0
 bokeh==3.2.1
 scipy==1.11.3
-streamlit==1.38.0
 pandas==2.2.2
 requests==2.32.3
 hvplot==0.10.0
