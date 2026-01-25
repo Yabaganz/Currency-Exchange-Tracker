@@ -7,7 +7,7 @@ from typing import Optional, Dict, List, Tuple
 from lightweight_charts.widgets import StreamlitChart # type: ignore
 
 # API Configuration
-API_KEY: str = "GVM9PgfkeLrGqXoK_uEV"  # Replace with your actual API key
+API_KEY: str = st.secrets.get("TRADERMADE_API_KEY", "")  # type: ignore
 LIST_URL: str = "https://marketdata.tradermade.com/api/v1/live_currencies_list"
 CONVERT_URL: str = "https://marketdata.tradermade.com/api/v1/convert"
 TIMESERIES_URL: str = "https://marketdata.tradermade.com/api/v1/timeseries"
@@ -268,4 +268,5 @@ with st.container():
                     chart.load()
                 
                 except Exception as e:
+
                     st.error(f"Pivot chart error: {str(e)}")
